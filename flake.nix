@@ -31,29 +31,34 @@
     };
   };
 
-  outputs = {
-    self,
-    nixpkgs,
-    systems,
-    ...
-  } @ inputs: let
-    inherit (nixpkgs) lib;
-    eachSystem = lib.genAttrs (import systems);
-    pkgsFor = eachSystem (system:
-      import nixpkgs {
-        localSystem.system = system;
-        overlays = with self.overlays; [default];
+  outputs =
+    {
+      self,
+      nixpkgs,
+      systems,
+      ...
+    }@inputs:
+    let
+      inherit (nixpkgs) lib;
+      eachSystem = lib.genAttrs (import systems);
+      pkgsFor = eachSystem (
+        system:
+        import nixpkgs {
+          localSystem.system = system;
+          overlays = with self.overlays; [ hyprsunset-with-deps ];
+        }
+      );
+    in
+    {
+      overlays = import ./nix/overlays.nix { inherit inputs lib; };
+
+      packages = eachSystem (system: {
+        default = self.packages.${system}.hyprsunset;
+        inherit (pkgsFor.${system}) hyprsunset;
       });
-  in {
-    overlays = import ./nix/overlays.nix {inherit inputs lib;};
 
-    packages = eachSystem (system: {
-      default = self.packages.${system}.hyprsunset;
-      inherit (pkgsFor.${system}) hyprsunset;
-    });
+      checks = eachSystem (system: self.packages.${system});
 
-    checks = eachSystem (system: self.packages.${system});
-
-    formatter = eachSystem (system: pkgsFor.${system}.alejandra);
-  };
+      formatter = eachSystem (system: pkgsFor.${system}.nixfmt-tree);
+    };
 }

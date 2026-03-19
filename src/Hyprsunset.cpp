@@ -3,6 +3,7 @@
 #include "IPCSocket.hpp"
 #include <cstring>
 #include <mutex>
+#include <optional>
 #include <thread>
 #include <chrono>
 #include <sys/poll.h>
@@ -103,7 +104,7 @@ int CHyprsunset::init() {
     state.wlDisplay = wl_display_connect(nullptr);
 
     if (!state.wlDisplay) {
-        Debug::log(NONE, "✖ Couldn't connect to a wayland compositor", KELVIN);
+        Debug::log(NONE, "✖ Couldn't connect to a wayland compositor");
         return 0;
     }
 
@@ -133,7 +134,7 @@ int CHyprsunset::init() {
                 makeShared<SOutput>(makeShared<CCWlOutput>((wl_proxy*)wl_registry_bind((wl_registry*)state.pRegistry->resource(), name, &wl_output_interface, 3)), name));
 
             if (state.initialized) {
-                Debug::log(NONE, "┣ already initialized, applying CTM instantly", name);
+                Debug::log(NONE, "┣ already initialized, applying CTM instantly");
                 o->applyCTM(&state);
                 commitCTMs();
             }
@@ -145,7 +146,7 @@ int CHyprsunset::init() {
     wl_display_roundtrip(state.wlDisplay);
 
     if (!state.pCTMMgr) {
-        Debug::log(NONE, "✖ Compositor doesn't support hyprland-ctm-control-v1, are you running on Hyprland?", KELVIN);
+        Debug::log(NONE, "✖ Compositor doesn't support hyprland-ctm-control-v1, are you running on Hyprland?");
         return 0;
     }
 
@@ -280,7 +281,8 @@ void CHyprsunset::reload() {
 }
 
 void CHyprsunset::loadCurrentProfile() {
-    profiles = g_pConfigManager->getSunsetProfiles();
+    profiles  = g_pConfigManager->getSunsetProfiles();
+    MAX_GAMMA = g_pConfigManager->getMaxGamma();
 
     Debug::log(NONE, "┣ Loaded {} profiles", profiles.size());
 
@@ -302,7 +304,6 @@ void CHyprsunset::loadCurrentProfile() {
     KELVIN                 = profile.temperature;
     GAMMA                  = profile.gamma;
     identity               = profile.identity;
-    MAX_GAMMA              = g_pConfigManager->getMaxGamma();
 
     Debug::log(NONE, "┣ Applying profile from: {}:{}", profile.time.hour.count(), profile.time.minute.count());
 }
@@ -330,8 +331,12 @@ int CHyprsunset::currentProfile() {
     return profiles.size() - 1;
 }
 
-SSunsetProfile CHyprsunset::getCurrentProfile() {
-    return profiles[currentProfile()];
+std::optional<SSunsetProfile> CHyprsunset::getCurrentProfile() {
+    int current = currentProfile();
+    if (current < 0)
+        return std::nullopt;
+
+    return profiles[current];
 }
 
 void CHyprsunset::schedule() {

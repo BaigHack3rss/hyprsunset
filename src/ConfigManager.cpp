@@ -110,21 +110,25 @@ std::vector<SSunsetProfile> CConfigManager::getSunsetProfiles() {
                 continue;
             }
             const std::string formatted = NSunCalc::CSunCalculator::formatTime(decimalHour);
-            if (formatted == "--:--")
-                RASSERT(false, "Computed {} time invalid for profile {}", time, key);
+            if (formatted == "--:--") {
+                Debug::log(ERR, "Computed {} time invalid for profile {}, skipping", time, key);
+                continue;
+            }
             time = formatted;
         }
 
         size_t separator = time.find(':');
-        if (separator == std::string::npos)
-            RASSERT(false, "Invalid time format for profile {}", key);
+        if (separator == std::string::npos) {
+            Debug::log(ERR, "Invalid time format: {}, skipping profile {}", time, key);
+            continue;
+        }
 
         int hour = 0, minute = 0;
         try {
             hour   = std::stoi(time.substr(0, separator));
             minute = std::stoi(time.substr(separator + 1).c_str());
         } catch (const std::exception& e) {
-            Debug::log(ERR, "Invalid time format: {}, skipping this profile", time);
+            Debug::log(ERR, "Invalid time format: {}, skipping profile {}", time, key);
             continue;
         }
 
